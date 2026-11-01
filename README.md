@@ -1,6 +1,8 @@
-# Rook Hub 2.0.1
+# Rook Hub 2.1.0
 
-Atualizacao de inicializacao: o painel agora abre sem varrer o mapa, carregar Quests/GuideModule ou obter VirtualInputManager. Em Auto Farm, a deteccao do mapa e o carregamento de quests sao ativados separadamente. Marcadores `[Rook]` no console identificam as etapas. Esta alteracao isola operacoes candidatas a incompatibilidade; nao comprova a causa nem a resolucao de uma falha nativa do cliente/executor. `pcall` nao captura falhas de memoria do processo.
+Interface reorganizada a partir da referencia visual fornecida: fundo preto/vinho, destaque vermelho, selecao lateral marcada e interruptores com indicador deslizante. Dez abas separam Inicio/Status, Auto Farm, Bosses/Materiais, Maestria, Player/Combat, Visual/ESP, Fruits/Shop, Sea Events/Raids, Teleports/Sea e Misc/Settings. Textos explicativos ficam recolhidos em Como funciona. Arma e controles diretos de farm ficam no inicio da aba Auto Farm. A aparencia ainda nao foi conferida dentro do Roblox.
+
+Atualizacao de inicializacao: o painel agora abre sem varrer o mapa, carregar Quests/GuideModule ou obter VirtualInputManager. Em Inicio / Status, a deteccao do mapa e o carregamento de quests sao ativados separadamente. Marcadores `[Rook]` no console identificam as etapas. Esta alteracao isola operacoes candidatas a incompatibilidade; nao comprova a causa nem a resolucao de uma falha nativa do cliente/executor. `pcall` nao captura falhas de memoria do processo.
 
 Script Luau para cliente Roblox no PC, com GUI nativa, oito módulos e distribuição em arquivo único. Nenhuma biblioteca de interface ou código de terceiros é baixado durante a execução.
 
@@ -9,7 +11,7 @@ Script Luau para cliente Roblox no PC, com GUI nativa, oito módulos e distribui
 ## Executar
 
 1. Abra `rook-hub.lua`, copie seu conteúdo completo e execute no cliente PC já dentro do jogo.
-2. Confirme primeiro que o painel permanece aberto. Em Auto Farm, ative a deteccao do mapa. Carregue quests separadamente quando precisar de Level ou quests de bosses. Escolha seu Sea manualmente em **Misc / Settings** se aparecer `Sea ?`.
+2. Confirme primeiro que o painel permanece aberto. Em Inicio / Status, ative a deteccao do mapa. Carregue quests separadamente quando precisar de Level ou quests de bosses. Escolha seu Sea manualmente em **Misc / Settings** se aparecer `Sea ?`.
 3. Selecione a arma em **Auto Farm**. Nome vazio mantém a equipada; categorias como `Melee`, `Sword` e `Gun` usam o `ToolTip` do objeto.
 4. Escolha um modo de farm. Modos de combate ativam o ataque automático. Noclip, habilidades, compras, mira e ESP têm controles próprios.
 5. Use **End** para parar; **RightShift** abre/minimiza. O botão flutuante ROOK também recupera o painel. A tecla pode ser alterada.
@@ -81,7 +83,7 @@ Nenhuma opção compra produtos em Robux ou faz compras por padrão. Respostas b
 | `src/Farm.luau` | Máquina de estados de quest, boss, material, coleta, player, raid e evento. |
 | `src/Services.luau` | Catálogo, armazenamento, compras, giro, server hop e anti-AFK. |
 | `src/Visuals.luau` | ESP limitado, rótulos, iluminação e câmera lunar. |
-| `src/Interface.luau` | Cinco abas, seletores pesquisáveis, campos validados, atalhos e estado da sessão. |
+| `src/Interface.luau` | Dez abas, seletores pesquisáveis, campos validados, atalhos e estado da sessão. |
 
 Os módulos são fábricas que recebem o mesmo contexto `C`, e as regras puras ficam em `Core`. O construtor empacota cada módulo em um escopo próprio; nenhuma função global do jogo é substituída. A lógica que conhece o formato de Blox Fruits fica principalmente em `World`, `Farm` e `Services`.
 
