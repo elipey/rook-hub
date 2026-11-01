@@ -19,6 +19,7 @@ local Vector3={new=vector}
 `;
 try {
   cp.execFileSync(luau, [path.join(root, 'tests/core.spec.luau')], {stdio: 'inherit'});
+  cp.execFileSync(luau, [path.join(root, 'tests/startup.spec.luau')], {stdio: 'inherit'});
   const runner = `${vectorMock}\nlocal Core=(function()\n${read('src/Core.luau')}\nend)()\nlocal Farm=(function()\n${read('src/Farm.luau')}\nend)()\nlocal test=(function()\n${read('tests/farm.spec.luau')}\nend)()\ntest(Farm,Core,vector)\n`;
   const target = path.join(temp, 'farm-runner.luau');
   fs.writeFileSync(target, runner);

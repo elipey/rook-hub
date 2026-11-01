@@ -137,6 +137,9 @@ return function(C)
         return names
     end
     UI:heading(farm,"Progressao e recursos")
+    UI:note(farm,"Inicializacao leve: ative a deteccao do mapa para ESP/coleta/destinos. Carregue quests separadamente para Level e quests de bosses.")
+    UI:button(farm,"1. Ativar deteccao do mapa",function() C.world:startIndex() end)
+    UI:button(farm,"2. Carregar quests do jogo",function() C.world:loadModules() end)
     UI:note(farm,"Um modo controla o movimento. Level usa as quests detectadas no jogo. Boss aguarda spawn; Candy depende do evento sazonal ativo.")
     UI:dropdown(farm,"Modo de farm","mode",C.Core.enums.mode,function(mode)
         if mode~="Off" and mode~="Fruit" and mode~="Chest" then C:set("attack",true) end

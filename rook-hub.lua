@@ -5,7 +5,7 @@ local Core = (function()
 -- Luau / Core.luau / Luau 0.7+ e Roblox / Rook Hub
 -- Regras puras: nao acessam jogo, rede, arquivos ou interfaces.
 local Core = {}
-Core.version = "2.0.0"
+Core.version = "2.0.1"
 Core.defaults = {
     mode = "Off", sea = "Auto", weapon = "", masteryWeapon = "", enemy = "",
     material = "Bones", event = "Sea Beast", player = "", fruit = "",
@@ -351,27 +351,39 @@ return function(C)
         if name:find("mirage",1,true) or name:find("temple",1,true) or name:find("gear",1,true) or name:find("trial",1,true) then W.index.race[object]=true end
         if object.Parent.Name=="EnemySpawns" or object.Parent.Name=="FortBuilderReplicatedSpawnPositionsFolder" then W.index.spawns[object]=true end
     end
-    C:connect(workspace.DescendantAdded,classify)
-    C:connect(workspace.DescendantRemoving,function(object)
-        for _,bucket in pairs(W.index) do bucket[object]=nil end
-    end)
-    -- Uma descoberta inicial, processada em lotes. Depois, apenas sinais incrementais.
-    local initial=workspace:GetDescendants()
-    local scanCursor=1
-    C:job("index-initial",0.03,function()
-        if not initial then return end
-        for _=1,250 do
-            local object=initial[scanCursor]
-            if not object then initial=nil; C:log("Indice inicial concluido."); break end
-            classify(object); scanCursor=scanCursor+1
+    -- Descoberta explicita: abrir o painel nao enumera todo o Workspace.
+    local pending={}
+    function W:startIndex()
+        if self.indexStarted then C:notify("Deteccao do mapa ja iniciada."); return end
+        self.indexStarted=true
+        print("[Rook] index:start")
+        C:connect(workspace.DescendantAdded,classify)
+        C:connect(workspace.DescendantRemoving,function(object)
+            for _,bucket in pairs(self.index) do bucket[object]=nil end
+        end)
+        table.insert(pending,workspace)
+        local folder=C.ReplicatedStorage:FindFirstChild("FortBuilderReplicatedSpawnPositionsFolder")
+        if folder then
+            table.insert(pending,folder)
+            C:connect(folder.ChildAdded,classify)
+            C:connect(folder.ChildRemoved,function(object) self.index.spawns[object]=nil end)
         end
-    end)
-    local spawnFolder=C.ReplicatedStorage:FindFirstChild("FortBuilderReplicatedSpawnPositionsFolder")
-    if spawnFolder then
-        for _,object in ipairs(spawnFolder:GetChildren()) do classify(object) end
-        C:connect(spawnFolder.ChildAdded,classify)
-        C:connect(spawnFolder.ChildRemoved,function(object) W.index.spawns[object]=nil end)
+        C:notify("Deteccao incremental do mapa iniciada.")
     end
+    C:job("index-initial",0.03,function()
+        if #pending==0 then return end
+        local deadline=os.clock()+0.002
+        for _=1,100 do
+            local object=table.remove(pending)
+            if not object then break end
+            if object==workspace or object.Parent then
+                classify(object)
+                for _,child in ipairs(object:GetChildren()) do table.insert(pending,child) end
+            end
+            if os.clock()>=deadline then break end
+        end
+        if #pending==0 then C:log("Indice inicial concluido."); print("[Rook] index:complete") end
+    end)
     function W:loadModules()
         if self.loading then return end
         self.loading=true; self.loadStarted=os.clock()
@@ -381,8 +393,12 @@ return function(C)
             if not questModule or not guideModule or not questModule:IsA("ModuleScript") or not guideModule:IsA("ModuleScript") then
                 self.loading=false; C:notify("Modulos Quests/GuideModule indisponiveis. Farm por nivel bloqueado."); return
             end
+            print("[Rook] require:Quests:start")
             local ok,quests=pcall(require,questModule)
+            print("[Rook] require:Quests:returned",ok)
+            print("[Rook] require:GuideModule:start")
             local guideOk,guide=pcall(require,guideModule)
+            print("[Rook] require:GuideModule:returned",guideOk)
             self.loading=false
             if not ok or not guideOk or type(guide)~="table" then C:notify("Executor nao conseguiu ler os modulos de quests."); return end
             self.quests=Core.questRecords(quests); self.guide=guide
@@ -487,7 +503,7 @@ return function(C)
         table.sort(names)
         return table.concat(names,", ")
     end
-    W:loadModules()
+    C:log("Inicializacao leve: deteccao do mapa e leitura de quests aguardam ativacao manual.")
     return W
 end
 
@@ -501,8 +517,7 @@ return function(C)
     local W,Core=C.world,C.Core
     local M={collisions={},originals={},keys={},skillTimes={},lastAttack=0,skillCursor=1}
     C.motion=M
-    local inputOk,virtualInput=pcall(game.GetService,game,"VirtualInputManager")
-    if not inputOk then virtualInput=nil end
+    local virtualInput
     local function releaseKeys()
         if virtualInput then
             for key in pairs(M.keys) do pcall(function() virtualInput:SendKeyEvent(false,Enum.KeyCode[key],false,game) end) end
@@ -556,7 +571,12 @@ return function(C)
         return W:nearest(matches,root.Position,nil,C.config.searchRadius)
     end
     local function pulse(key,now)
-        if not virtualInput or M.keys[key] then return false end
+        if not virtualInput then
+            local ok,result=pcall(game.GetService,game,"VirtualInputManager")
+            if not ok then C:set("skills",false); C:notify("Entrada virtual indisponivel."); return false end
+            virtualInput=result
+        end
+        if M.keys[key] then return false end
         local ok=pcall(function() virtualInput:SendKeyEvent(true,Enum.KeyCode[key],false,game) end)
         if not ok then C:set("skills",false); C:notify("Executor bloqueou entrada virtual de habilidades."); return false end
         M.keys[key]=now+0.06
@@ -1196,6 +1216,9 @@ return function(C)
         return names
     end
     UI:heading(farm,"Progressao e recursos")
+    UI:note(farm,"Inicializacao leve: ative a deteccao do mapa para ESP/coleta/destinos. Carregue quests separadamente para Level e quests de bosses.")
+    UI:button(farm,"1. Ativar deteccao do mapa",function() C.world:startIndex() end)
+    UI:button(farm,"2. Carregar quests do jogo",function() C.world:loadModules() end)
     UI:note(farm,"Um modo controla o movimento. Level usa as quests detectadas no jogo. Boss aguarda spawn; Candy depende do evento sazonal ativo.")
     UI:dropdown(farm,"Modo de farm","mode",C.Core.enums.mode,function(mode)
         if mode~="Off" and mode~="Fruit" and mode~="Chest" then C:set("attack",true) end
@@ -1325,17 +1348,31 @@ end
 
 end)()
 
--- Inicializacao atomica: falha de modulo encerra conexoes e restaura alteracoes.
+-- Marcadores locais identificam a ultima etapa antes de uma falha nativa.
+print("[Rook " .. Core.version .. "] Runtime:start")
 local context = Runtime(Core)
 local ok, problem = pcall(function()
+    print("[Rook] World:start")
     World(context)
+    print("[Rook] World:ready")
+    print("[Rook] MotionCombat:start")
     MotionCombat(context)
+    print("[Rook] MotionCombat:ready")
+    print("[Rook] Farm:start")
     Farm(context)
+    print("[Rook] Farm:ready")
+    print("[Rook] Services:start")
     Services(context)
+    print("[Rook] Services:ready")
+    print("[Rook] Visuals:start")
     Visuals(context)
+    print("[Rook] Visuals:ready")
+    print("[Rook] Interface:start")
     Interface(context)
+    print("[Rook] Interface:ready")
 end)
 if not ok then
     context:destroy()
     error("Rook Hub: " .. tostring(problem))
 end
+print("[Rook] UI ready; map and quest loading await manual activation")

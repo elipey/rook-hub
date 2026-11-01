@@ -1,13 +1,15 @@
-# Rook Hub 2.0
+# Rook Hub 2.0.1
+
+Atualizacao de inicializacao: o painel agora abre sem varrer o mapa, carregar Quests/GuideModule ou obter VirtualInputManager. Em Auto Farm, a deteccao do mapa e o carregamento de quests sao ativados separadamente. Marcadores `[Rook]` no console identificam as etapas. Esta alteracao isola operacoes candidatas a incompatibilidade; nao comprova a causa nem a resolucao de uma falha nativa do cliente/executor. `pcall` nao captura falhas de memoria do processo.
 
 Script Luau para cliente Roblox no PC, com GUI nativa, oito módulos e distribuição em arquivo único. Nenhuma biblioteca de interface ou código de terceiros é baixado durante a execução.
 
-**Estado da entrega:** o bundle compila no compilador oficial Luau. Os 19 testes locais passaram. Não foi executado no Roblox, em executor ou em uma sessão de Blox Fruits. Compilar e testar regras isoladas não comprova compatibilidade com o jogo, permissões do executor, confirmação de compras, dano, movimento ou aceitação de quests.
+**Estado da entrega:** o bundle compila no compilador oficial Luau. Os 20 testes locais passaram. Não foi executado no Roblox, em executor ou em uma sessão de Blox Fruits. Compilar e testar regras isoladas não comprova compatibilidade com o jogo, permissões do executor, confirmação de compras, dano, movimento ou aceitação de quests.
 
 ## Executar
 
 1. Abra `rook-hub.lua`, copie seu conteúdo completo e execute no cliente PC já dentro do jogo.
-2. Aguarde o diagnóstico de leitura dos módulos de quests. Escolha seu Sea manualmente em **Misc / Settings** se aparecer `Sea ?`.
+2. Confirme primeiro que o painel permanece aberto. Em Auto Farm, ative a deteccao do mapa. Carregue quests separadamente quando precisar de Level ou quests de bosses. Escolha seu Sea manualmente em **Misc / Settings** se aparecer `Sea ?`.
 3. Selecione a arma em **Auto Farm**. Nome vazio mantém a equipada; categorias como `Melee`, `Sword` e `Gun` usam o `ToolTip` do objeto.
 4. Escolha um modo de farm. Modos de combate ativam o ataque automático. Noclip, habilidades, compras, mira e ESP têm controles próprios.
 5. Use **End** para parar; **RightShift** abre/minimiza. O botão flutuante ROOK também recupera o painel. A tecla pode ser alterada.
@@ -88,7 +90,7 @@ Os módulos são fábricas que recebem o mesmo contexto `C`, e as regras puras f
 - Um agendador no `Heartbeat`, sem criar `while true` por botão.
 - Farm a 5 Hz; seleção da mira a 10 Hz; combate a 20 Hz, com temporizador separado de ataque; ESP e estado da GUI a 2 Hz; loja a cada 2 s, mas catálogo com intervalo de 120 s.
 - RenderStepped só orienta a câmera para um alvo previamente selecionado. PreSimulation trata movimento e colisão local.
-- A varredura inicial obtém os descendentes uma vez e classifica lotes de 250; mudanças posteriores usam eventos. A criação inicial dessa lista ainda pode custar tempo/memória em mapas grandes.
+- A deteccao do mapa e manual e visita filhos incrementalmente, com limite de 100 objetos e orcamento de 2 ms por lote (uma chamada individual ainda pode ultrapassar esse tempo). Nao cria uma lista de todos os descendentes na inicializacao; mudancas posteriores usam eventos.
 - Apenas uma chamada de `CommF_` pendente; limites por comando, sem fila ilimitada. Uma chamada sem resposta por 15 s bloqueia o canal e exige reexecutar.
 - StartQuest aguarda confirmação e para após três tentativas. APIs ausentes geram diagnóstico.
 - End desliga os modos, libera teclas, remove ESP e restaura alterações locais. Encerrar também desconecta eventos e cancela tarefas locais. Solicitações já enviadas ao servidor não podem ser desfeitas.
@@ -113,6 +115,7 @@ Verificação realizada:
 
 - Compilação de sintaxe de todo o bundle pelo compilador oficial Luau.
 - 11 testes de configuração, perfis, quests, fronteiras de Sea e servidores.
+- 1 teste de inicializacao ociosa, sem leitura de quests ou varredura de mapa.
 - 8 testes de transição do farm: preservação/substituição de quest, aceitação, limite de tentativas, painel desconhecido, vida baixa e modo Off.
 - Análise estática de `Core.luau` e seus testes, sem diagnósticos. Os módulos Roblox não foram validados com definições completas do engine.
 

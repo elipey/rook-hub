@@ -4,8 +4,7 @@ return function(C)
     local W,Core=C.world,C.Core
     local M={collisions={},originals={},keys={},skillTimes={},lastAttack=0,skillCursor=1}
     C.motion=M
-    local inputOk,virtualInput=pcall(game.GetService,game,"VirtualInputManager")
-    if not inputOk then virtualInput=nil end
+    local virtualInput
     local function releaseKeys()
         if virtualInput then
             for key in pairs(M.keys) do pcall(function() virtualInput:SendKeyEvent(false,Enum.KeyCode[key],false,game) end) end
@@ -59,7 +58,12 @@ return function(C)
         return W:nearest(matches,root.Position,nil,C.config.searchRadius)
     end
     local function pulse(key,now)
-        if not virtualInput or M.keys[key] then return false end
+        if not virtualInput then
+            local ok,result=pcall(game.GetService,game,"VirtualInputManager")
+            if not ok then C:set("skills",false); C:notify("Entrada virtual indisponivel."); return false end
+            virtualInput=result
+        end
+        if M.keys[key] then return false end
         local ok=pcall(function() virtualInput:SendKeyEvent(true,Enum.KeyCode[key],false,game) end)
         if not ok then C:set("skills",false); C:notify("Executor bloqueou entrada virtual de habilidades."); return false end
         M.keys[key]=now+0.06

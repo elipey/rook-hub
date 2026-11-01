@@ -38,27 +38,39 @@ return function(C)
         if name:find("mirage",1,true) or name:find("temple",1,true) or name:find("gear",1,true) or name:find("trial",1,true) then W.index.race[object]=true end
         if object.Parent.Name=="EnemySpawns" or object.Parent.Name=="FortBuilderReplicatedSpawnPositionsFolder" then W.index.spawns[object]=true end
     end
-    C:connect(workspace.DescendantAdded,classify)
-    C:connect(workspace.DescendantRemoving,function(object)
-        for _,bucket in pairs(W.index) do bucket[object]=nil end
-    end)
-    -- Uma descoberta inicial, processada em lotes. Depois, apenas sinais incrementais.
-    local initial=workspace:GetDescendants()
-    local scanCursor=1
-    C:job("index-initial",0.03,function()
-        if not initial then return end
-        for _=1,250 do
-            local object=initial[scanCursor]
-            if not object then initial=nil; C:log("Indice inicial concluido."); break end
-            classify(object); scanCursor=scanCursor+1
+    -- Descoberta explicita: abrir o painel nao enumera todo o Workspace.
+    local pending={}
+    function W:startIndex()
+        if self.indexStarted then C:notify("Deteccao do mapa ja iniciada."); return end
+        self.indexStarted=true
+        print("[Rook] index:start")
+        C:connect(workspace.DescendantAdded,classify)
+        C:connect(workspace.DescendantRemoving,function(object)
+            for _,bucket in pairs(self.index) do bucket[object]=nil end
+        end)
+        table.insert(pending,workspace)
+        local folder=C.ReplicatedStorage:FindFirstChild("FortBuilderReplicatedSpawnPositionsFolder")
+        if folder then
+            table.insert(pending,folder)
+            C:connect(folder.ChildAdded,classify)
+            C:connect(folder.ChildRemoved,function(object) self.index.spawns[object]=nil end)
         end
-    end)
-    local spawnFolder=C.ReplicatedStorage:FindFirstChild("FortBuilderReplicatedSpawnPositionsFolder")
-    if spawnFolder then
-        for _,object in ipairs(spawnFolder:GetChildren()) do classify(object) end
-        C:connect(spawnFolder.ChildAdded,classify)
-        C:connect(spawnFolder.ChildRemoved,function(object) W.index.spawns[object]=nil end)
+        C:notify("Deteccao incremental do mapa iniciada.")
     end
+    C:job("index-initial",0.03,function()
+        if #pending==0 then return end
+        local deadline=os.clock()+0.002
+        for _=1,100 do
+            local object=table.remove(pending)
+            if not object then break end
+            if object==workspace or object.Parent then
+                classify(object)
+                for _,child in ipairs(object:GetChildren()) do table.insert(pending,child) end
+            end
+            if os.clock()>=deadline then break end
+        end
+        if #pending==0 then C:log("Indice inicial concluido."); print("[Rook] index:complete") end
+    end)
     function W:loadModules()
         if self.loading then return end
         self.loading=true; self.loadStarted=os.clock()
@@ -68,8 +80,12 @@ return function(C)
             if not questModule or not guideModule or not questModule:IsA("ModuleScript") or not guideModule:IsA("ModuleScript") then
                 self.loading=false; C:notify("Modulos Quests/GuideModule indisponiveis. Farm por nivel bloqueado."); return
             end
+            print("[Rook] require:Quests:start")
             local ok,quests=pcall(require,questModule)
+            print("[Rook] require:Quests:returned",ok)
+            print("[Rook] require:GuideModule:start")
             local guideOk,guide=pcall(require,guideModule)
+            print("[Rook] require:GuideModule:returned",guideOk)
             self.loading=false
             if not ok or not guideOk or type(guide)~="table" then C:notify("Executor nao conseguiu ler os modulos de quests."); return end
             self.quests=Core.questRecords(quests); self.guide=guide
@@ -174,6 +190,6 @@ return function(C)
         table.sort(names)
         return table.concat(names,", ")
     end
-    W:loadModules()
+    C:log("Inicializacao leve: deteccao do mapa e leitura de quests aguardam ativacao manual.")
     return W
 end

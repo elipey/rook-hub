@@ -1,7 +1,7 @@
 -- Luau / Core.luau / Luau 0.7+ e Roblox / Rook Hub
 -- Regras puras: nao acessam jogo, rede, arquivos ou interfaces.
 local Core = {}
-Core.version = "2.0.0"
+Core.version = "2.0.1"
 Core.defaults = {
     mode = "Off", sea = "Auto", weapon = "", masteryWeapon = "", enemy = "",
     material = "Bones", event = "Sea Beast", player = "", fruit = "",
