@@ -1,0 +1,68 @@
+-- Luau / core.spec.luau / Luau CLI / regras do Rook Hub
+local Core=require("../src/Core")
+local passed=0
+local function test(name,callback)
+    local ok,problem=pcall(callback)
+    assert(ok,name..": "..tostring(problem)); passed=passed+1; print("PASS "..name)
+end
+test("config limita extremos, NaN e campos desconhecidos",function()
+    local result=Core.config({moveSpeed=99999,walkSpeed=0/0,flySpeed=-100,attackInterval=-1,injected=true})
+    assert(result.moveSpeed==250 and result.walkSpeed==32 and result.flySpeed==10 and result.attackInterval==0.12)
+    assert(result.injected==nil)
+end)
+test("perfil nao reativa compras, combate ou movimento",function()
+    local result=Core.config({mode="Level",attack=true,autoBuy=true,autoRandom=true,fly=true,weapon="Katana",autoHop=true},true)
+    assert(result.mode=="Off" and not result.attack and not result.autoBuy and not result.autoRandom and not result.fly and not result.autoHop)
+    assert(result.weapon=="Katana")
+end)
+test("enums invalidos e tipos incorretos voltam ao padrao",function()
+    local result=Core.config({mode="injetado",sea="4",moveSpeed="rapido",attack=1})
+    assert(result.mode=="Off" and result.sea=="Auto" and result.moveSpeed==100 and result.attack==false)
+end)
+test("teclas deduplicadas e nomes normalizados",function()
+    assert(table.concat(Core.keys("Z,X,X,C;V F"),",")=="Z,X,C,V,F")
+    assert(Core.cleanName("  Bandit [Lv. 5] [Boss]  ")=="bandit")
+    assert(Core.contains("abc[def]","[def]"))
+end)
+local records=Core.questRecords({
+    First={{LevelReq=1,Task={Bandit=5}},{LevelReq=20,Task={Monkey=8}}},
+    Last={{LevelReq=650,Task={Galley=8}}},
+    Second={{LevelReq=700,Task={Raider=8}}},
+    Third={{LevelReq=1500,Task={Pirate=8}}},
+    Boss={{LevelReq=20,Task={King=1}}},
+    BartiloQuest={{LevelReq=850,Task={Pirate=50}}},
+    Corrupt={{LevelReq=0/0,Task={Bandit=1}},{LevelReq=4,Task={A=2,B=3}},{LevelReq=1,Task={A="5"}}},
+})
+test("adaptador rejeita missoes invalidas e quest especial",function() assert(#records==6) end)
+test("selecao por nivel respeita fronteiras de Sea",function()
+    assert(Core.chooseQuest(records,699,1).id=="Last")
+    assert(Core.chooseQuest(records,700,2).id=="Second")
+    assert(Core.chooseQuest(records,1500,3).id=="Third")
+    assert(Core.chooseQuest(records,1500,1).id=="Last")
+    assert(Core.chooseQuest(records,699,2)==nil)
+    assert(Core.chooseQuest(records,5000,nil)==nil)
+end)
+test("boss selecionado por nome e sem roubar quest de nivel",function()
+    assert(Core.chooseQuest(records,25,1).enemy=="Monkey")
+    assert(Core.chooseQuest(records,25,1,"King [Lv. 20] [Boss]").id=="Boss")
+    assert(Core.chooseQuest(records,19,1,"King")==nil)
+end)
+test("empates de quest sao deterministas",function()
+    local data=Core.questRecords({Z={{LevelReq=1,Task={Z=5}}},A={{LevelReq=1,Task={A=5}}}})
+    assert(Core.chooseQuest(data,1,1).id=="A")
+end)
+test("server hop ignora atual, lotado, visitado e dados invalidos",function()
+    local server=Core.pickServer({{id="current",playing=0,maxPlayers=12},{id="full",playing=12,maxPlayers=12},
+        {id="seen",playing=0,maxPlayers=12},{id="bad",playing="0",maxPlayers=12},{id="ok",playing=3,maxPlayers=12}},"current",{seen=true},true)
+    assert(server.id=="ok")
+    assert(Core.pickServer(nil,"current",{},true)==nil)
+end)
+test("low server escolhe menor populacao elegivel",function()
+    assert(Core.pickServer({{id="a",playing=8,maxPlayers=12},{id="b",playing=1,maxPlayers=12}},"x",{},true).id=="b")
+end)
+test("Sea desconhecido exige adaptacao explicita",function()
+    assert(Core.world(12345,"Auto")==nil)
+    assert(Core.world(12345,"2")==2)
+    assert(Core.world(2753915549,"Auto")==1)
+end)
+print("Core: "..passed.." testes passaram.")
